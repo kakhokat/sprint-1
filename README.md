@@ -21,61 +21,47 @@ CREATE DATABASE movies;
 ```
 
 # Проверка решения
--- проверить, что есть схема content
 ```
-\dn
-```
-
-```
+movies_database=> \dn
        List of schemas
   Name   |       Owner
 ---------+-------------------
- content | postgres
+ content | app
  public  | pg_database_owner
 (2 rows)
-```
--- проверить, что созданы таблицы
-```
-\dt content.*
-```
 
-```
-               List of relations
- Schema  |       Name       | Type  |  Owner
----------+------------------+-------+----------
- content | film_work        | table | postgres
- content | genre            | table | postgres
- content | genre_film_work  | table | postgres
- content | person           | table | postgres
- content | person_film_work | table | postgres
+
+movies_database=> \dt content.*
+             List of relations
+ Schema  |       Name       | Type  | Owner
+---------+------------------+-------+-------
+ content | film_work        | table | app
+ content | genre            | table | app
+ content | genre_film_work  | table | app
+ content | person           | table | app
+ content | person_film_work | table | app
 (5 rows)
 
-```
--- посмотреть структуру таблицы
-```
-\d content.film_work
-```
 
-```
+movies_database=> \d content.film_work
                          Table "content.film_work"
     Column     |           Type           | Collation | Nullable | Default
 ---------------+--------------------------+-----------+----------+---------
- id            | uuid                     |           | not null |
+ film_id       | uuid                     |           | not null |
  title         | text                     |           | not null |
  description   | text                     |           |          |
  creation_date | date                     |           |          |
  rating        | double precision         |           |          |
- type          | text                     |           | not null |
+ film_type     | text                     |           | not null |
  created_at    | timestamp with time zone |           |          | now()
  updated_at    | timestamp with time zone |           |          | now()
 Indexes:
-    "film_work_pkey" PRIMARY KEY, btree (id)
+    "film_work_pkey" PRIMARY KEY, btree (film_id)
     "idx_film_work_title" btree (title)
 Check constraints:
-    "film_work_rating_check" CHECK (rating >= 0::double precision AND rating <= 10::double precision)
-Referenced by:
-    TABLE "content.genre_film_work" CONSTRAINT "genre_film_work_film_work_id_fkey" FOREIGN KEY (film_work_id) REFERENCES content.film_work(id) ON DELETE CASCADE
-    TABLE "content.person_film_work" CONSTRAINT "person_film_work_film_work_id_fkey" FOREIGN KEY (film_work_id) REFERENCES content.film_work(id) ON DELETE CASCADE
+    "film_work_rating_check" CHECK (rating >= 0::double precision AND rating <= 10::double precision)Referenced by:
+    TABLE "content.genre_film_work" CONSTRAINT "genre_film_work_film_work_id_fkey" FOREIGN KEY (film_work_id) REFERENCES content.film_work(film_id) ON DELETE CASCADE
+    TABLE "content.person_film_work" CONSTRAINT "person_film_work_film_work_id_fkey" FOREIGN KEY (film_work_id) REFERENCES content.film_work(film_id) ON DELETE CASCADE
 ```
 
 
@@ -119,7 +105,7 @@ Django-проект movies_admin.
 
 3️⃣ Модели (models.py)
 
-FilmWork: uuid, title, description, creation_date, rating, type, created_at, updated_at.
+FilmWork: uuid, title, description, creation_date, rating, film_type, created_at, updated_at.
 
 Genre: uuid, name (unique), description, created_at, updated_at.
 

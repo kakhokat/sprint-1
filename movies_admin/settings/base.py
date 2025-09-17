@@ -10,6 +10,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 load_dotenv(BASE_DIR / ".env")  # загружаем .env в dev
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "unsafe-secret-for-dev")
+DEBUG = os.getenv("DEBUG", "False") == "True"
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -30,6 +31,9 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
 ]
+
+if DEBUG:
+    MIDDLEWARE += ["debug_toolbar.middleware.DebugToolbarMiddleware"]
 
 ROOT_URLCONF = "movies_admin.urls"
 TEMPLATES = [

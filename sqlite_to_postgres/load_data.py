@@ -1,125 +1,113 @@
 import logging
 import sqlite3
-from dataclasses import dataclass
-from typing import Any, List
 
 import psycopg
 
 logging.basicConfig(level=logging.INFO)
 
-
-@dataclass
-class Film:
-    film_id: str
-    title: str
-    description: str
-    creation_date: str
-    rating: float
-    film_type: str
-
-
-@dataclass
-class Genre:
-    genre_id: str
-    name: str
-
-
-@dataclass
-class Person:
-    person_id: str
-    full_name: str
-
-
-@dataclass
-class GenreFilmWork:
-    genre_film_id: str
-    film_work_id: str
-    genre_id: str
-
-
-@dataclass
-class PersonFilmWork:
-    person_film_id: str
-    film_work_id: str
-    person_id: str
-    role: str
-
-
-class SQLiteLoader:
-    def __init__(self, conn: sqlite3.Connection):
-        self.conn = conn
-        self.conn.row_factory = sqlite3.Row
-
-    def load_films(self) -> List[Film]:
-        return [Film(**row) for row in self._fetch_all("film_work")]
-
-    def load_genres(self) -> List[Genre]:
-        return [Genre(**row) for row in self._fetch_all("genre")]
-
-    def load_persons(self) -> List[Person]:
-        return [Person(**row) for row in self._fetch_all("person")]
-
-    def load_genre_film_work(self) -> List[GenreFilmWork]:
-        return [
-            GenreFilmWork(**row) for row in self._fetch_all("genre_film_work")
-        ]
-
-    def load_person_film_work(self) -> List[PersonFilmWork]:
-        return [
-            PersonFilmWork(**row)
-            for row in self._fetch_all("person_film_work")
-        ]
-
-    def _fetch_all(self, table: str) -> List[dict]:
-        cur = self.conn.cursor()
-        cur.execute(f"SELECT * FROM {table}")
-        rows = cur.fetchall()
-        return [dict(row) for row in rows]
-
-
-class PostgresSaver:
-    def __init__(self, conn: psycopg.Connection):
-        self.conn = conn
-
-    def save_batch(self, table: str, rows: List[Any]):
-        if not rows:
-            return
-        columns = rows[0].__dataclass_fields__.keys()
-        query = (
-            f"INSERT INTO content.{table} ({", ".join(columns)}) "
-            f"VALUES ({", ".join(["%s"]*len(columns))}) "
-            "ON CONFLICT DO NOTHING"
-        )
-        try:
-            with self.conn.cursor() as cur:
-                for row in rows:
-                    cur.execute(query, tuple(getattr(row, c) for c in columns))
-            self.conn.commit()
-        except Exception as e:
-            logging.error("Ошибка вставки в %s: %s", table, e)
-            self.conn.rollback()
+# Маппинг SQLite → PostgreSQL
+TABLES = {
+    "genre": {
+        "sqlite_fields": [
+            "model_uuid",
+            "name",
+            "description_text",
+            "created",
+            "modified",
+        ],
+        "pg_table": "content.genre",
+        "pg_fields": [
+            "genre_id",
+            "name",
+            "description",
+            "created_at",
+            "updated_at",
+        ],
+    },
+    "person": {
+        "sqlite_fields": [
+            "model_uuid",
+            "full_name_person",
+            "created",
+            "modified",
+        ],
+        "pg_table": "content.person",
+        "pg_fields": ["person_id", "full_name", "created_at", "updated_at"],
+    },
+    "film_work": {
+        "sqlite_fields": [
+            "model_uuid",
+            "title",
+            "description",
+            "film_type",
+            "creation_date",
+            "created",
+            "modified",
+        ],
+        "pg_table": "content.film_work",
+        "pg_fields": [
+            "film_id",
+            "title",
+            "description",
+            "film_type",
+            "creation_date",
+            "created_at",
+            "updated_at",
+        ],
+    },
+    "genre_film_work": {
+        "sqlite_fields": ["model_uuid", "film_work_id", "genre_id", "created"],
+        "pg_table": "content.genre_film_work",
+        "pg_fields": [
+            "genre_film_id",
+            "film_work_id",
+            "genre_id",
+            "created_at",
+        ],
+    },
+    "person_film_work": {
+        "sqlite_fields": [
+            "model_uuid",
+            "film_work_id",
+            "person_id",
+            "role",
+            "created",
+        ],
+        "pg_table": "content.person_film_work",
+        "pg_fields": [
+            "person_film_id",
+            "film_work_id",
+            "person_id",
+            "role",
+            "created_at",
+        ],
+    },
+}
 
 
 def load_from_sqlite(
     sqlite_conn: sqlite3.Connection, pg_conn: psycopg.Connection
 ):
-    loader = SQLiteLoader(sqlite_conn)
-    saver = PostgresSaver(pg_conn)
+    sqlite_cur = sqlite_conn.cursor()
+    pg_cur = pg_conn.cursor()
 
-    films = loader.load_films()
-    genres = loader.load_genres()
-    persons = loader.load_persons()
-    genre_fw = loader.load_genre_film_work()
-    person_fw = loader.load_person_film_work()
+    for table_name, cfg in TABLES.items():
+        sqlite_cur.execute(
+            f"SELECT {", ".join(cfg["sqlite_fields"])} FROM {table_name}"
+        )
+        rows = sqlite_cur.fetchall()
+        if not rows:
+            continue
 
-    logging.info(
-        f"Найдено фильмов: {len(films)}"
-        f"жанров: {len(genres)}"
-        f"персон: {len(persons)}"
-    )
+        placeholders = ", ".join(["%s"] * len(cfg["pg_fields"]))
+        pg_cur.executemany(
+            f"INSERT INTO {cfg["pg_table"]} ({", ".join(cfg["pg_fields"])}) "
+            f"VALUES ({placeholders}) ON CONFLICT DO NOTHING",
+            rows,
+        )
+        logging.info(
+            f"{table_name}: {len(rows)} строк перенесено в PostgreSQL."
+        )
 
-    saver.save_batch("film_work", films)
-    saver.save_batch("genre", genres)
-    saver.save_batch("person", persons)
-    saver.save_batch("genre_film_work", genre_fw)
-    saver.save_batch("person_film_work", person_fw)
+    pg_conn.commit()
+    logging.info("Данные успешно перенесены из SQLite в PostgreSQL.")

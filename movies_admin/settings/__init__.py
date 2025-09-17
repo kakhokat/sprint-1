@@ -1,0 +1,18 @@
+from .base import (
+    BASE_DIR,
+    DATABASES,
+    DEBUG,
+    INSTALLED_APPS,
+    LANGUAGE_CODE,
+    LANGUAGES,
+    LOCALE_PATHS,
+    MIDDLEWARE,
+    ROOT_URLCONF,
+    SECRET_KEY,
+    STATIC_URL,
+    TEMPLATES,
+    TIME_ZONE,
+    USE_I18N,
+    USE_TZ,
+    WSGI_APPLICATION,
+)

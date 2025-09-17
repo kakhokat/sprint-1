@@ -5,6 +5,10 @@ __pycache__/
 *.pyd
 *.pyc
 
+# для отладки
+collect_repo.py
+repo_code.txt
+
 # Виртуальное окружение
 .venv/
 env/

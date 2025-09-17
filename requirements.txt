@@ -2,8 +2,6 @@ Django==5.2.6
 psycopg2-binary==2.9.10
 python-dotenv==1.1.1
 dj-database-url==3.0.1
-
-# Flake8 и плагины
 flake8==5.0.4
 flake8-blind-except==0.2.1
 flake8-broken-line==0.6.0
